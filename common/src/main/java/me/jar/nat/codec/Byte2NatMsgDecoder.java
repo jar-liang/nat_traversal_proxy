@@ -1,4 +1,4 @@
-package me.jar.nat.utils;
+package me.jar.nat.codec;
 
 import com.alibaba.fastjson.JSON;
 import io.netty.buffer.ByteBuf;

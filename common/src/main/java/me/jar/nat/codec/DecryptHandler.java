@@ -1,4 +1,4 @@
-package me.jar.nat.utils;
+package me.jar.nat.codec;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -7,6 +7,7 @@ import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.util.ReferenceCountUtil;
 import me.jar.nat.constants.DecryptDecoderState;
 import me.jar.nat.constants.ProxyConstants;
+import me.jar.nat.utils.AESUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

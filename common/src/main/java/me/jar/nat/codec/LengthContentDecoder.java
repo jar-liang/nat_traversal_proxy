@@ -1,4 +1,4 @@
-package me.jar.nat.utils;
+package me.jar.nat.codec;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
