@@ -63,7 +63,7 @@ public class PrivateClient {
                     pipeline.addLast("decoder", new Byte2NatMsgDecoder());
                     pipeline.addLast("encoder", new NatMsg2ByteEncoder());
                     pipeline.addLast("idleEvt", new IdleStateHandler(60, 30, 0));
-//                    pipeline.addLast("proxyHandler", new ProxyHandler());
+                    pipeline.addLast("proxyHandler", new ProxyHandler());
                 }
             });
             String serverAgentIp = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_IP);
