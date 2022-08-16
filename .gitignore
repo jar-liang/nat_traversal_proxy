@@ -2,3 +2,5 @@
 /common/target/
 /.idea/
 /publicserver/publicserver.iml
+/natcommon/natcommon.iml
+/natcommon/target/
