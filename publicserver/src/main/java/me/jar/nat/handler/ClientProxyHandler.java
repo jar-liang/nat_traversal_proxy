@@ -40,8 +40,7 @@ public class ClientProxyHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws NatProxyException {
         if (msg instanceof NatMsg) {
             NatMsg natMsg = (NatMsg) msg;
-            String role = String.valueOf(natMsg.getMetaData().get(ProxyConstants.ROLE));
-            if (ProxyConstants.ROLE_PORTAL.equals(role)) {
+            if (isPortalHandler || ProxyConstants.ROLE_PORTAL.equals(natMsg.getMetaData().get(ProxyConstants.ROLE))) {
                 String id = String.valueOf(natMsg.getMetaData().get(ProxyConstants.CHANNEL_ID));
                 Map<String, PairChannel> pairChannelMap = globalChannelMap.get(serverProxyChannelId);
                 switch (natMsg.getType()) {
@@ -68,7 +67,7 @@ public class ClientProxyHandler extends ChannelInboundHandlerAdapter {
                     default:
                         throw new NatProxyException("message type is not one of CONNECT,DATA,DISCONNECT");
                 }
-            } else if (ProxyConstants.ROLE_AGENT.equals(role)) {
+            } else {
                 String id = String.valueOf(natMsg.getMetaData().get(ProxyConstants.CHANNEL_ID));
                 switch (natMsg.getType()) {
                     case CONNECT:
@@ -100,10 +99,7 @@ public class ClientProxyHandler extends ChannelInboundHandlerAdapter {
                     default:
                         throw new NatProxyException("message type is not one of CONNECT,DATA,DISCONNECT");
                 }
-            } else {
-                throw new NatProxyException("received message has no role mata data");
             }
-
         } else {
             throw new NatProxyException("received message is not NatMsg");
         }
@@ -135,7 +131,7 @@ public class ClientProxyHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-
+        System.out.println("channelId: " + channelId);
         NatMsg natMsg = new NatMsg();
         natMsg.setType(NatMsgType.DISCONNECT);
         Map<String, Object> metaData = new HashMap<>(1);

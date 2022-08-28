@@ -92,8 +92,9 @@ public class ProxyHandler extends CommonHandler {
         });
 //        String targetIp = ProxyConstants.PROPERTY.get(ProxyConstants.TARGET_IP);
 //        String targetPort = ProxyConstants.PROPERTY.get(ProxyConstants.TARGET_PORT);
-        String targetIp = "192.168.0.101";
-        String targetPort = "3389";
+        String targetIp = String.valueOf(metaData.get(ProxyConstants.TARGET_IP));
+        String targetPort = String.valueOf(metaData.get(ProxyConstants.TARGET_PORT));
+        System.out.println("连接的目标ip:" + targetIp + ", port: " + targetPort);
         try {
             int targetPortNum = Integer.parseInt(targetPort);
             bootstrap.connect(targetIp, targetPortNum).addListener((ChannelFutureListener) connectTargetFuture -> {
