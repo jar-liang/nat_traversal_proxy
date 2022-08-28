@@ -28,6 +28,7 @@ public class CommonHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         LOGGER.error("===caught exception： " + cause.getMessage());
+        ctx.close();
     }
 
     @Override

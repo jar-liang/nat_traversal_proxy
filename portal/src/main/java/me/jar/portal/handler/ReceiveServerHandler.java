@@ -1,14 +1,20 @@
 package me.jar.portal.handler;
 
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.handler.timeout.IdleState;
-import io.netty.handler.timeout.IdleStateEvent;
-import io.netty.util.ReferenceCountUtil;
+import me.jar.nat.constants.NatMsgType;
+import me.jar.nat.constants.ProxyConstants;
+import me.jar.nat.exception.NatProxyException;
+import me.jar.nat.message.NatMsg;
 import me.jar.nat.utils.NettyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @Description
@@ -24,21 +30,58 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        if (clientChannel.isActive()) {
-            clientChannel.writeAndFlush(msg);
-        } else {
-            LOGGER.error("===Client channel disconnected, no transferring data.");
-            ReferenceCountUtil.release(msg);
-            ctx.close();
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws NatProxyException {
+        if (msg instanceof NatMsg) {
+            NatMsg natMsg = (NatMsg) msg;
+            switch (natMsg.getType()) {
+                case CONNECT:
+                    System.out.println("建立连接，步骤9，收到发回来的CONNECT");
+                    String id = String.valueOf(natMsg.getMetaData().get(ProxyConstants.CHANNEL_ID));
+                    if (ctx.channel().id().asLongText().equals(id)) {
+                        System.out.println("建立连接，步骤10，连接建立完成，开始让读数据");
+                        clientChannel.read();
+                    } else {
+                        throw new NatProxyException("connect message channel id does not match ReceiveServerHandler channel id");
+                    }
+                    break;
+                case DATA:
+                    byte[] date = natMsg.getDate();
+//                    System.out.println("返回6");
+                    clientChannel.writeAndFlush(Unpooled.wrappedBuffer(date));
+                    break;
+                case DISCONNECT:
+                    System.out.println(System.nanoTime() + "portal收到断开消息");
+                    ctx.close();
+                    break;
+                default:
+                    throw new NatProxyException("message type is not one of CONNECT,DATA,DISCONNECT");
+            }
         }
     }
 
     @Override
+    public void channelActive(ChannelHandlerContext ctx) {
+        System.out.println("建立连接，步骤2，发送CONNECT");
+        NatMsg natMsg = new NatMsg();
+        natMsg.setType(NatMsgType.CONNECT);
+        Map<String, Object> metaData = new HashMap<>(2);
+        metaData.put(ProxyConstants.CHANNEL_ID, ctx.channel().id().asLongText());
+        metaData.put(ProxyConstants.ROLE, ProxyConstants.ROLE_PORTAL);
+        natMsg.setMetaData(metaData);
+        ctx.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
+            if (future.isSuccess()) {
+                ctx.channel().config().setAutoRead(true);
+            } else {
+                NettyUtil.closeOnFlush(clientChannel);
+                ctx.close();
+            }
+        });
+    }
+
+    @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        LOGGER.debug("===Far channel disconnected");
+        System.out.println(System.nanoTime() + "断开，2");
         NettyUtil.closeOnFlush(clientChannel);
-        ctx.close();
     }
 
     @Override
@@ -48,15 +91,4 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
         ctx.close();
     }
 
-    @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
-        if (evt instanceof IdleStateEvent) {
-            IdleStateEvent event = (IdleStateEvent) evt;
-            if (event.state() == IdleState.ALL_IDLE) {
-                LOGGER.warn("no data read and write more than 10s, close connection");
-                NettyUtil.closeOnFlush(clientChannel);
-                ctx.close();
-            }
-        }
-    }
 }

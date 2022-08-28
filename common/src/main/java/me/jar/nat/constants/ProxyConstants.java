@@ -21,9 +21,9 @@ public interface ProxyConstants {
 
     int OTHER_OS = 3;
 
-    String BASE_PATH_WIN = "C:\\usr\\transferProxy2Client\\";
+    String BASE_PATH_WIN = "C:\\usr\\natTraversalProxy\\";
 
-    String BASE_PATH_LINUX = "/usr/transferProxy2Client/";
+    String BASE_PATH_LINUX = "/usr/natTraversalProxy/";
 
     String PROPERTY_NAME_WIN = BASE_PATH_WIN + "property.txt";
 
@@ -44,6 +44,12 @@ public interface ProxyConstants {
     String FAR_SERVER_PORT = "far.port";
 
     String CHANNEL_ID = "channelId";
+
+    String ROLE = "role";
+
+    String ROLE_PORTAL = "p";
+
+    String ROLE_AGENT = "a";
 
     String SERVER_LISTEN_PORT = "server.listen.port";
 

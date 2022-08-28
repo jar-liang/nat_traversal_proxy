@@ -43,23 +43,7 @@ public final class PlatformUtil {
         }
         File file = new File(propertyFileName);
         if (!file.exists()) {
-            LOGGER.warn("property.txt not exist! if not running on server, it OK");
-            return propertyMap;
-        }
-        parseProperty2Map(propertyMap, propertyFileName);
-        return propertyMap;
-    }
-
-    public static Map<String, String> getProperty(String index) {
-        Map<String, String> propertyMap = new HashMap<>(20);
-        String propertyFileName;
-        if (PLATFORM_CODE == ProxyConstants.WIN_OS) {
-            propertyFileName = ProxyConstants.BASE_PATH_WIN + "property_" + index + ".txt";
-        } else if (PLATFORM_CODE == ProxyConstants.LINUX_OS) {
-            propertyFileName = ProxyConstants.BASE_PATH_LINUX + "property_" + index + ".txt";
-        } else {
-            // 打印日志提示，不支持的系统
-            LOGGER.warn("===Unsupported System!");
+            LOGGER.warn("no default property file found, if exist in app directory, it OK");
             return propertyMap;
         }
         parseProperty2Map(propertyMap, propertyFileName);

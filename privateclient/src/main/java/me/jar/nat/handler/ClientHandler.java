@@ -1,21 +1,21 @@
 package me.jar.nat.handler;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.handler.timeout.IdleState;
-import io.netty.handler.timeout.IdleStateEvent;
+import me.jar.nat.channel.PairChannel;
 import me.jar.nat.constants.NatMsgType;
 import me.jar.nat.constants.ProxyConstants;
+import me.jar.nat.exception.NatProxyException;
 import me.jar.nat.message.NatMsg;
-import me.jar.nat.utils.AESUtil;
-import me.jar.nat.utils.BuildDataUtil;
 import me.jar.nat.utils.NettyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.UnsupportedEncodingException;
-import java.security.GeneralSecurityException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,65 +27,86 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientHandler.class);
     private final Channel proxyChannel;
     private final String channelId;
-    private final String password;
-    private final Map<String, Channel> channelMap;
-    private int idleTime;
-    private int lastLength = 0;
-    private final boolean isNeedWaiting = ProxyConstants.TYPE_HTTP.equalsIgnoreCase(ProxyConstants.PROPERTY.get(ProxyConstants.PROXY_TYPE));
+//    private final String password;
+    private final Map<String, PairChannel> pairChannelMap;
+    private final boolean isTargetChannel;
+    private Channel theOtherChannel;
 
-    public ClientHandler(Channel proxyChannel, String channelId, Map<String, Channel> channelMap, int idleTime) {
+    public ClientHandler(Channel proxyChannel, String channelId, Map<String, PairChannel> pairChannelMap, boolean isTargetChannel) {
         this.proxyChannel = proxyChannel;
         this.channelId = channelId;
-        String password = ProxyConstants.PROPERTY.get(ProxyConstants.PROPERTY_NAME_KEY);
-        if (password == null || password.length() == 0) {
-            throw new IllegalArgumentException("Illegal key from property");
-        }
-        this.password = password;
-        this.channelMap = channelMap;
-        this.idleTime = idleTime;
+//        String password = ProxyConstants.PROPERTY.get(ProxyConstants.PROPERTY_NAME_KEY);
+//        if (password == null || password.length() == 0) {
+//            throw new IllegalArgumentException("Illegal key from property");
+//        }
+//        this.password = password;
+        this.pairChannelMap = pairChannelMap;
+        this.isTargetChannel = isTargetChannel;
     }
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        if (msg instanceof byte[]) {
-            byte[] bytes = (byte[]) msg;
-            try {
-                byte[] encrypt = AESUtil.encrypt(bytes, password);
-                byte[] data = BuildDataUtil.buildLengthAndMarkWithData(encrypt);
-                if (isNeedWaiting) {
-                    if (lastLength > 10240) {
-                        Thread.sleep(100L);
-                        if (!channelMap.containsKey(channelId)) {
-                            LOGGER.warn("channelMap has no channel, its id: " + channelId + ", stop sending data!");
-                            ctx.close();
-                            return;
-                        }
-                    }
-                    lastLength = data.length;
-                }
-                Map<String, Object> metaData = new HashMap<>(1);
-                metaData.put(ProxyConstants.CHANNEL_ID, channelId);
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws NatProxyException {
+        if (isTargetChannel) {
+            if (msg instanceof ByteBuf) {
+                ByteBuf data = (ByteBuf) msg;
                 NatMsg natMsg = new NatMsg();
                 natMsg.setType(NatMsgType.DATA);
+                Map<String, Object> metaData = new HashMap<>(2);
+                metaData.put(ProxyConstants.CHANNEL_ID, channelId);
+                metaData.put(ProxyConstants.ROLE, ProxyConstants.ROLE_AGENT);
                 natMsg.setMetaData(metaData);
-                natMsg.setDate(data);
-                proxyChannel.writeAndFlush(natMsg);
-            } catch (GeneralSecurityException | UnsupportedEncodingException | InterruptedException e) {
-                LOGGER.error("===Encrypt data failed. detail: {}", e.getMessage());
-                ctx.close();
+                natMsg.setDate(ByteBufUtil.getBytes(data));
+//                System.out.println("返回4");
+                theOtherChannel.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
+                    if (future.isSuccess()) {
+                        ctx.channel().read();
+                    } else {
+                        NettyUtil.closeOnFlush(ctx.channel());
+                    }
+                });
+            } else {
+                throw new NatProxyException("target message received is not ByteBuf");
+            }
+        } else {
+            if (msg instanceof NatMsg) {
+                NatMsg natMsg = (NatMsg) msg;
+                switch (natMsg.getType()) {
+                    case DATA:
+//                        System.out.println("发送3");
+                        theOtherChannel.writeAndFlush(Unpooled.wrappedBuffer(natMsg.getDate()));
+                        break;
+                    case DISCONNECT:
+                        ctx.close();
+                        break;
+                    default:
+                        throw new NatProxyException("message type is not one of DATA/DISCONNECT");
+                }
+            } else {
+                throw new NatProxyException("agent message received is not NatMsg");
             }
         }
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        channelMap.remove(channelId);
-        Map<String, Object> metaData = new HashMap<>(1);
-        metaData.put(ProxyConstants.CHANNEL_ID, channelId);
-        NatMsg transferMsg = new NatMsg();
-        transferMsg.setType(NatMsgType.DISCONNECT);
-        transferMsg.setMetaData(metaData);
-        proxyChannel.writeAndFlush(transferMsg);
+        if (isTargetChannel) {
+            System.out.println(System.nanoTime() + "断开，4");
+            if (theOtherChannel != null && theOtherChannel.isActive()) {
+                NatMsg natMsg = new NatMsg();
+                natMsg.setType(NatMsgType.DISCONNECT);
+                Map<String, Object> metaData = new HashMap<>(2);
+                metaData.put(ProxyConstants.CHANNEL_ID, channelId);
+                metaData.put(ProxyConstants.ROLE, ProxyConstants.ROLE_AGENT);
+                natMsg.setMetaData(metaData);
+                theOtherChannel.writeAndFlush(natMsg).addListener(ChannelFutureListener.CLOSE);
+            }
+        } else {
+            System.out.println(System.nanoTime() + "断开，3");
+            NettyUtil.closeOnFlush(theOtherChannel);
+        }
+        System.out.println(System.nanoTime() + "断开前pairChannelMap大小: " + pairChannelMap.size());
+        pairChannelMap.remove(channelId);
+        System.out.println(System.nanoTime() + "断开后pairChannelMap大小: " + pairChannelMap.size());
     }
 
     @Override
@@ -96,14 +117,10 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
-        if (evt instanceof IdleStateEvent) {
-            IdleStateEvent event = (IdleStateEvent) evt;
-            if (event.state() == IdleState.ALL_IDLE) {
-                LOGGER.warn("no data read and write more than " + idleTime + "s, close connection");
-                channelMap.remove(channelId);
-                // 发送DISCONNECT消息 close会调用channelInactive
-                NettyUtil.closeOnFlush(ctx.channel());
-            }
+        if (evt instanceof Channel) {
+            this.theOtherChannel = (Channel) evt;
+        } else {
+            ctx.fireUserEventTriggered(evt);
         }
     }
 }

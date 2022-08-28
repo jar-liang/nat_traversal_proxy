@@ -49,4 +49,24 @@ public final class NettyUtil {
         }
     }
 
+    public static void starServer(int port, ChannelHandler chanelInitializer, boolean isAutoRead) {
+        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+        EventLoopGroup workerGroup = new NioEventLoopGroup();
+        try {
+            ServerBootstrap serverBootstrap = new ServerBootstrap();
+            serverBootstrap.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
+                    .childOption(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
+                    .childOption(ChannelOption.SO_KEEPALIVE, true)
+                    .childOption(ChannelOption.AUTO_READ, isAutoRead)
+                    .childHandler(chanelInitializer);
+            ChannelFuture cf = serverBootstrap.bind(port).sync();
+            LOGGER.info(">>>Proxy server started, the listening port is {}.", port);
+            cf.channel().closeFuture().sync();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            bossGroup.shutdownGracefully();
+            workerGroup.shutdownGracefully();
+        }
+    }
 }
