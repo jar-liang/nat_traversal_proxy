@@ -39,7 +39,7 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
                     String id = String.valueOf(natMsg.getMetaData().get(ProxyConstants.CHANNEL_ID));
                     if (ctx.channel().id().asLongText().equals(id)) {
                         System.out.println("建立连接，步骤10，连接建立完成，开始让读数据");
-                        clientChannel.read();
+                        clientChannel.config().setAutoRead(true);
                     } else {
                         throw new NatProxyException("connect message channel id does not match ReceiveServerHandler channel id");
                     }
@@ -57,6 +57,13 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
                     throw new NatProxyException("message type is not one of CONNECT,DATA,DISCONNECT");
             }
         }
+    }
+
+    @Override
+    public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
+        System.out.println("portal执行channelWritabilityChanged，是否可写：" + ctx.channel().isWritable());
+        clientChannel.config().setAutoRead(ctx.channel().isWritable());
+        super.channelWritabilityChanged(ctx);
     }
 
     @Override

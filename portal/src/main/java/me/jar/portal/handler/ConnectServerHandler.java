@@ -36,7 +36,7 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
     private Channel farChannel;
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws InterruptedException {
+    public void channelRead(ChannelHandlerContext ctx, Object msg) {
         // 直连far端，将数据发送过去
         if (farChannel != null && farChannel.isActive()) {
             if (msg instanceof ByteBuf) {
@@ -47,13 +47,17 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
                 metaData.put(ProxyConstants.CHANNEL_ID, farChannel.id().asLongText());
                 metaData.put(ProxyConstants.ROLE, ProxyConstants.ROLE_PORTAL);
                 natMsg.setMetaData(metaData);
-                natMsg.setDate(ByteBufUtil.getBytes(data));
+                byte[] dataBytes = ByteBufUtil.getBytes(data);
+                natMsg.setDate(dataBytes);
 //                System.out.println("已建立连接，步骤11，读到数据，发送: " + natMsg.toString());
 //                System.out.println("发送1");
                 farChannel.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
-                    if (future.isSuccess()) {
-                        ctx.channel().read();
-                    } else {
+                    if (!future.isSuccess()) {
+//                        if (isNeedWaiting && dataBytes.length > 10240) {
+//                            Thread.sleep(150L);
+//                        }
+//                        ctx.channel().read();
+//                    } else {
                         NettyUtil.closeOnFlush(ctx.channel());
                     }
                 });
@@ -63,6 +67,13 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
         } else {
             NettyUtil.closeOnFlush(ctx.channel());
         }
+    }
+
+    @Override
+    public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
+        System.out.println("browser执行channelWritabilityChanged，是否可写：" + ctx.channel().isWritable());
+        farChannel.config().setAutoRead(ctx.channel().isWritable());
+        super.channelWritabilityChanged(ctx);
     }
 
     @Override
@@ -91,7 +102,7 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
 //        String host = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_IP);
 //        int port = Integer.parseInt(ProxyConstants.PROPERTY.get(ProxyConstants.SERVER_CLIENT_PORT));
         String host = "127.0.0.1";
-        int port = 15555;
+        int port = 22222;
         bootstrap.connect(host, port)
                 .addListener((ChannelFutureListener) connectFuture -> {
                     if (connectFuture.isSuccess()) {

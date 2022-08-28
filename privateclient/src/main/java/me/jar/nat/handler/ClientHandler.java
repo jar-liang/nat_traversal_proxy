@@ -55,12 +55,16 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                 metaData.put(ProxyConstants.CHANNEL_ID, channelId);
                 metaData.put(ProxyConstants.ROLE, ProxyConstants.ROLE_AGENT);
                 natMsg.setMetaData(metaData);
-                natMsg.setDate(ByteBufUtil.getBytes(data));
+                byte[] dataBytes = ByteBufUtil.getBytes(data);
+                natMsg.setDate(dataBytes);
 //                System.out.println("返回4");
                 theOtherChannel.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
-                    if (future.isSuccess()) {
-                        ctx.channel().read();
-                    } else {
+                    if (!future.isSuccess()) {
+//                        if (isNeedWaiting && dataBytes.length > 10240) {
+//                            Thread.sleep(150L);
+//                        }
+//                        ctx.channel().read();
+//                    } else {
                         NettyUtil.closeOnFlush(ctx.channel());
                     }
                 });
@@ -85,6 +89,19 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                 throw new NatProxyException("agent message received is not NatMsg");
             }
         }
+    }
+
+    @Override
+    public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
+        String str;
+        if (isTargetChannel) {
+            str = "target";
+        } else {
+            str = "agent";
+        }
+        System.out.println(str + "执行channelWritabilityChanged，是否可写：" + ctx.channel().isWritable());
+        theOtherChannel.config().setAutoRead(ctx.channel().isWritable());
+        super.channelWritabilityChanged(ctx);
     }
 
     @Override

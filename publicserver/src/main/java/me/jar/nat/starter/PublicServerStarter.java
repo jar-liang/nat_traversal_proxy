@@ -1,6 +1,5 @@
 package me.jar.nat.starter;
 
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
@@ -16,8 +15,6 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.util.Map;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -25,24 +22,24 @@ import java.util.concurrent.ConcurrentHashMap;
  * @Date 2021/4/23-23:45
  */
 public class PublicServerStarter {
-//    static {
-//        String path = PublicServerStarter.class.getProtectionDomain().getCodeSource().getLocation().getPath();
-//        if (path.contains(".jar")) {
-//            String osName = System.getProperty("os.name");
-//            String tempPath;
-//            if (osName.contains("Windows")) {
-//                tempPath = path.substring(path.indexOf("/") + 1, path.indexOf(".jar"));
-//            } else {
-//                tempPath = path.substring(path.indexOf("/"), path.indexOf(".jar"));
-//            }
-//            String targetDirPath = tempPath.substring(0, tempPath.lastIndexOf("/"));
-//            System.out.println("target path: " + targetDirPath);
-//            System.setProperty("WORKDIR", targetDirPath);
-//        } else {
-//            System.out.println("current path not contain .jar file");
-//            System.exit(1);
-//        }
-//    }
+    static {
+        String path = PublicServerStarter.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+        if (path.contains(".jar")) {
+            String osName = System.getProperty("os.name");
+            String tempPath;
+            if (osName.contains("Windows")) {
+                tempPath = path.substring(path.indexOf("/") + 1, path.indexOf(".jar"));
+            } else {
+                tempPath = path.substring(path.indexOf("/"), path.indexOf(".jar"));
+            }
+            String targetDirPath = tempPath.substring(0, tempPath.lastIndexOf("/"));
+            System.out.println("target path: " + targetDirPath);
+            System.setProperty("WORKDIR", targetDirPath);
+        } else {
+            System.out.println("current path not contain .jar file");
+            System.exit(1);
+        }
+    }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PublicServerStarter.class);
     private static final URL URL = PublicServerStarter.class.getProtectionDomain().getCodeSource().getLocation();
@@ -58,7 +55,7 @@ public class PublicServerStarter {
 //            String port = ProxyConstants.PROPERTY.get(ProxyConstants.SERVER_LISTEN_PORT);
             try {
 //                int portNum = Integer.parseInt(port.trim()); todo
-                int portNum = 13333;
+                int portNum = 23333;
                 new PublicServerStarter().runForProxy(portNum);
             } catch (NumberFormatException e) {
                 LOGGER.error("===Failed to parse number, property setting may be wrong.", e);

@@ -121,7 +121,7 @@ public class ProxyHandler extends CommonHandler {
 //                        String serverAgentIp = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_IP);
 //                        String serverClientPort = ProxyConstants.PROPERTY.get(ProxyConstants.SERVER_CLIENT_PORT);
                         String serverAgentIp = "127.0.0.1";
-                        String serverClientPort = "15555";
+                        String serverClientPort = "22222";
                         int serverClientPortNum = Integer.parseInt(serverClientPort);
                         bootstrapProxy.connect(serverAgentIp, serverClientPortNum).addListener((ChannelFutureListener) connectProxyFuture -> {
                             if (connectProxyFuture.isSuccess()) {
@@ -138,7 +138,7 @@ public class ProxyHandler extends CommonHandler {
                                 System.out.println("建立连接，步骤6，发送CONNECT回去");
                                 connectProxyFuture.channel().writeAndFlush(natMsg).addListener((ChannelFutureListener) futureMsgSend -> {
                                     if (futureMsgSend.isSuccess()) {
-                                        connectTargetFuture.channel().read();
+                                        connectTargetFuture.channel().config().setAutoRead(true);
                                     } else {
                                         futureMsgSend.channel().close();
                                         connectTargetFuture.channel().close();
@@ -191,7 +191,7 @@ public class ProxyHandler extends CommonHandler {
 //        String password = ProxyConstants.PROPERTY.get(ProxyConstants.USER_PASSWORD);
 //        metaData.put("password", password);
 //        String server2ClientPort = ProxyConstants.PROPERTY.get(ProxyConstants.SERVER_CLIENT_PORT);
-        String server2ClientPort = "15555";
+        String server2ClientPort = "22222";
         metaData.put("port", server2ClientPort);
 //        metaData.put("proxyType", proxyType);
         natMsg.setMetaData(metaData);
