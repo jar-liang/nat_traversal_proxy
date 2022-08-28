@@ -53,11 +53,6 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
 //                System.out.println("发送1");
                 farChannel.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
                     if (!future.isSuccess()) {
-//                        if (isNeedWaiting && dataBytes.length > 10240) {
-//                            Thread.sleep(150L);
-//                        }
-//                        ctx.channel().read();
-//                    } else {
                         NettyUtil.closeOnFlush(ctx.channel());
                     }
                 });

@@ -131,9 +131,11 @@ public class ProxyHandler extends CommonHandler {
                                 connectProxyFuture.channel().pipeline().fireUserEventTriggered(connectTargetFuture.channel());
                                 NatMsg natMsg = new NatMsg();
                                 natMsg.setType(NatMsgType.CONNECT);
-                                Map<String, Object> metaDataSend = new HashMap<>(2);
+                                Map<String, Object> metaDataSend = new HashMap<>(4);
                                 metaDataSend.put(ProxyConstants.CHANNEL_ID, channelId);
                                 metaDataSend.put(ProxyConstants.ROLE, ProxyConstants.ROLE_AGENT);
+                                metaDataSend.put("userName", "bbb");
+                                metaDataSend.put("password", "876543211");
                                 natMsg.setMetaData(metaDataSend);
                                 System.out.println("建立连接，步骤6，发送CONNECT回去");
                                 connectProxyFuture.channel().writeAndFlush(natMsg).addListener((ChannelFutureListener) futureMsgSend -> {
@@ -176,24 +178,19 @@ public class ProxyHandler extends CommonHandler {
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
-//        String proxyType = ProxyConstants.PROPERTY.get(ProxyConstants.PROXY_TYPE);
-//        if (!ProxyConstants.TYPE_HTTP.equalsIgnoreCase(proxyType) && !ProxyConstants.TYPE_TCP.equalsIgnoreCase(proxyType)) {
-//            LOGGER.error("proxy type now can only be HTTP or TCP! please check property.");
-//            return;
-//        }
-//        this.proxyType = proxyType;
-//        LOGGER.info("proxy type: " + proxyType + ", start to register to server agent...");
+        LOGGER.info("start to register to server agent...");
         NatMsg natMsg = new NatMsg();
         natMsg.setType(NatMsgType.REGISTER);
-        Map<String, Object> metaData = new HashMap<>(4);
+        Map<String, Object> metaData = new HashMap<>(3);
 //        String userName = ProxyConstants.PROPERTY.get(ProxyConstants.USER_NAME);
 //        metaData.put("userName", userName);
 //        String password = ProxyConstants.PROPERTY.get(ProxyConstants.USER_PASSWORD);
 //        metaData.put("password", password);
 //        String server2ClientPort = ProxyConstants.PROPERTY.get(ProxyConstants.SERVER_CLIENT_PORT);
+        metaData.put("userName", "test");
+        metaData.put("password", "123456");
         String server2ClientPort = "22222";
         metaData.put("port", server2ClientPort);
-//        metaData.put("proxyType", proxyType);
         natMsg.setMetaData(metaData);
         ctx.writeAndFlush(natMsg);
         super.channelActive(ctx);

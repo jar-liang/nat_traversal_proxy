@@ -60,11 +60,6 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
 //                System.out.println("返回4");
                 theOtherChannel.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
                     if (!future.isSuccess()) {
-//                        if (isNeedWaiting && dataBytes.length > 10240) {
-//                            Thread.sleep(150L);
-//                        }
-//                        ctx.channel().read();
-//                    } else {
                         NettyUtil.closeOnFlush(ctx.channel());
                     }
                 });

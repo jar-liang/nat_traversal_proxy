@@ -47,7 +47,7 @@ public class ServerProxyHandler extends CommonHandler {
     private Channel clientServerChannel;
     private final Map<String, Map<String, PairChannel>> globalChannelMap;
 
-    private Map<String, String> userAndPwdMap = new HashMap<>();
+    private final Map<String, String> userAndPwdMap = new HashMap<>();
 
     public ServerProxyHandler(Map<String, Map<String, PairChannel>> globalChannelMap) {
         this.globalChannelMap = globalChannelMap;
@@ -96,26 +96,26 @@ public class ServerProxyHandler extends CommonHandler {
         returnNatMsg.setType(NatMsgType.REGISTER_RESULT);
         Map<String, Object> retnMetaData = new HashMap<>();
         Map<String, Object> metaData = natMsg.getMetaData();
-//        String path = PublicServerStarter.getUrl().getPath();
-//        boolean findUserFile = getUserAndPwdMap(path);
-//
-//        if (!findUserFile) {
-//            retnMetaData.put("result", "0");
-//            retnMetaData.put("reason", "server inner error, contact the admin!");
-//            sendBackMsgAndDealResult(returnNatMsg, retnMetaData);
-//            return;
-//        }
-//
-//        String userNameRegister = String.valueOf(metaData.get("userName"));
-//        boolean isLegal = false;
-//        if (userAndPwdMap.containsKey(userNameRegister) && userAndPwdMap.get(userNameRegister).equals(metaData.get("password"))) {
-//            isLegal = true;
-//        }
-//        if (!isLegal) {
-//            // 没有密钥或密钥错误，返回提示， 不执行注册
-//            retnMetaData.put("result", "0");
-//            retnMetaData.put("reason", "Token is wrong");
-//        } else {
+        String path = PublicServerStarter.getUrl().getPath();
+        boolean findUserFile = getUserAndPwdMap(path);
+
+        if (!findUserFile) {
+            retnMetaData.put("result", "0");
+            retnMetaData.put("reason", "server inner error, contact the admin!");
+            sendBackMsgAndDealResult(returnNatMsg, retnMetaData);
+            return;
+        }
+
+        String userNameRegister = String.valueOf(metaData.get("userName"));
+        boolean isLegal = false;
+        if (userAndPwdMap.containsKey(userNameRegister) && userAndPwdMap.get(userNameRegister).equals(metaData.get("password"))) {
+            isLegal = true;
+        }
+        if (!isLegal) {
+            // 没有密钥或密钥错误，返回提示， 不执行注册
+            retnMetaData.put("result", "0");
+            retnMetaData.put("reason", "Token is wrong");
+        } else {
             // 启动一个新的serverBootstrap
             EventLoopGroup bossGroup = new NioEventLoopGroup(1);
             EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -158,74 +158,76 @@ public class ServerProxyHandler extends CommonHandler {
                 bossGroup.shutdownGracefully();
                 workerGroup.shutdownGracefully();
             }
-//        }
+        }
         sendBackMsgAndDealResult(returnNatMsg, retnMetaData);
     }
 
     private boolean getUserAndPwdMap(String path) {
-        if (userAndPwdMap != null && !userAndPwdMap.isEmpty()) {
-            return true;
-        }
-        boolean findUserFile = true;
-        if (path.contains(".jar")) {
-            String tempPath = null;
-            if (PlatformUtil.PLATFORM_CODE == ProxyConstants.WIN_OS) {
-                tempPath = path.substring(path.indexOf("/") + 1, path.indexOf(".jar"));
-            } else if (PlatformUtil.PLATFORM_CODE == ProxyConstants.LINUX_OS) {
-                tempPath = path.substring(path.indexOf("/"), path.indexOf(".jar"));
-            } else {
-                // 打印日志提示，不支持的系统
-                LOGGER.warn("===Unsupported System!");
-                findUserFile = false;
-            }
-            if (tempPath != null) {
-                String targetDirPath = tempPath.substring(0, tempPath.lastIndexOf("/") + 1);
-                File file = new File(targetDirPath);
-                if (file.exists() && file.isDirectory()) {
-                    File[] properties = file.listFiles(pathname -> pathname.getName().contains("user"));
-                    if (properties == null || properties.length != 1) {
-                        LOGGER.error("jar file directory should be only one property file! please check");
-                        findUserFile = false;
-                    } else {
-                        File property = properties[0];
-                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(property), CharsetUtil.UTF_8))) {
-                            while (true) {
-                                String line = reader.readLine();
-                                if (line == null) {
-                                    break;
-                                }
-                                if (line.length() == 0) {
-                                    continue;
-                                }
-                                String[] split = line.split("\\|");
-                                if (split.length == 2) {
-                                    String userName = split[0];
-                                    String pwd = split[1];
-                                    if (userName != null && userName.length() > 0
-                                            && pwd != null && pwd.length() > 0) {
-                                        userAndPwdMap.put(userName.trim(), pwd.trim());
-                                    }
-                                }
-                            }
-                            if (userAndPwdMap.isEmpty()) {
-                                LOGGER.error("read user file, but no data! please check!");
-                                findUserFile = false;
-                            }
-                        } catch (IOException e) {
-                            // 打印日志提示，读取配置文件失败
-                            LOGGER.error("error code: 02, reading user file failed，please check!", e);
-                            findUserFile = false;
-                        }
-                    }
-                } else {
-                    LOGGER.error("get jar file directory failed! please check!");
-                }
-            }
-        } else {
-            LOGGER.error("path not contain '.jar' string! please check!");
-            findUserFile = false;
-        }
-        return findUserFile;
+        userAndPwdMap.put("test", "123456");
+        return true;
+//        if (!userAndPwdMap.isEmpty()) {
+//            return true;
+//        }
+//        boolean findUserFile = true;
+//        if (path.contains(".jar")) {
+//            String tempPath = null;
+//            if (PlatformUtil.PLATFORM_CODE == ProxyConstants.WIN_OS) {
+//                tempPath = path.substring(path.indexOf("/") + 1, path.indexOf(".jar"));
+//            } else if (PlatformUtil.PLATFORM_CODE == ProxyConstants.LINUX_OS) {
+//                tempPath = path.substring(path.indexOf("/"), path.indexOf(".jar"));
+//            } else {
+//                // 打印日志提示，不支持的系统
+//                LOGGER.warn("===Unsupported System!");
+//                findUserFile = false;
+//            }
+//            if (tempPath != null) {
+//                String targetDirPath = tempPath.substring(0, tempPath.lastIndexOf("/") + 1);
+//                File file = new File(targetDirPath);
+//                if (file.exists() && file.isDirectory()) {
+//                    File[] properties = file.listFiles(pathname -> pathname.getName().contains("user"));
+//                    if (properties == null || properties.length != 1) {
+//                        LOGGER.error("jar file directory should be only one property file! please check");
+//                        findUserFile = false;
+//                    } else {
+//                        File property = properties[0];
+//                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(property), CharsetUtil.UTF_8))) {
+//                            while (true) {
+//                                String line = reader.readLine();
+//                                if (line == null) {
+//                                    break;
+//                                }
+//                                if (line.length() == 0) {
+//                                    continue;
+//                                }
+//                                String[] split = line.split("\\|");
+//                                if (split.length == 2) {
+//                                    String userName = split[0];
+//                                    String pwd = split[1];
+//                                    if (userName != null && userName.length() > 0
+//                                            && pwd != null && pwd.length() > 0) {
+//                                        userAndPwdMap.put(userName.trim(), pwd.trim());
+//                                    }
+//                                }
+//                            }
+//                            if (userAndPwdMap.isEmpty()) {
+//                                LOGGER.error("read user file, but no data! please check!");
+//                                findUserFile = false;
+//                            }
+//                        } catch (IOException e) {
+//                            // 打印日志提示，读取配置文件失败
+//                            LOGGER.error("error code: 02, reading user file failed，please check!", e);
+//                            findUserFile = false;
+//                        }
+//                    }
+//                } else {
+//                    LOGGER.error("get jar file directory failed! please check!");
+//                }
+//            }
+//        } else {
+//            LOGGER.error("path not contain '.jar' string! please check!");
+//            findUserFile = false;
+//        }
+//        return findUserFile;
     }
 
     private void sendBackMsgAndDealResult(NatMsg retnNatMsg, Map<String, Object> retnMetaData) {

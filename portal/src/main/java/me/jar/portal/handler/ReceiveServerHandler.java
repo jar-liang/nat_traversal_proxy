@@ -71,13 +71,15 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
         System.out.println("建立连接，步骤2，发送CONNECT");
         NatMsg natMsg = new NatMsg();
         natMsg.setType(NatMsgType.CONNECT);
-        Map<String, Object> metaData = new HashMap<>(4);
+        Map<String, Object> metaData = new HashMap<>(6);
         metaData.put(ProxyConstants.CHANNEL_ID, ctx.channel().id().asLongText());
         metaData.put(ProxyConstants.ROLE, ProxyConstants.ROLE_PORTAL);
         String targetIp = "192.168.0.110";
         String targetPort = "8080";
         metaData.put(ProxyConstants.TARGET_IP, targetIp);
         metaData.put(ProxyConstants.TARGET_PORT, targetPort);
+        metaData.put("userName", "aaa");
+        metaData.put("password", "12345678");
         natMsg.setMetaData(metaData);
         ctx.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
             if (future.isSuccess()) {
