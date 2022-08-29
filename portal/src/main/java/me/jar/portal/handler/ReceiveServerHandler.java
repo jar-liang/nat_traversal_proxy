@@ -9,10 +9,13 @@ import me.jar.nat.constants.NatMsgType;
 import me.jar.nat.constants.ProxyConstants;
 import me.jar.nat.exception.NatProxyException;
 import me.jar.nat.message.NatMsg;
+import me.jar.nat.utils.AESUtil;
 import me.jar.nat.utils.NettyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.UnsupportedEncodingException;
+import java.security.GeneralSecurityException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,6 +27,7 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReceiveServerHandler.class);
 
     private final Channel clientChannel;
+    private final String password = "0123456789abcdef";
 
     public ReceiveServerHandler(Channel clientChannel) {
         this.clientChannel = clientChannel;
@@ -45,9 +49,14 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
                     }
                     break;
                 case DATA:
-                    byte[] date = natMsg.getDate();
 //                    System.out.println("返回6");
-                    clientChannel.writeAndFlush(Unpooled.wrappedBuffer(date));
+                    try {
+                        byte[] decryptData = AESUtil.decrypt(natMsg.getDate(), password);
+                        clientChannel.writeAndFlush(Unpooled.wrappedBuffer(decryptData));
+                    } catch (GeneralSecurityException | UnsupportedEncodingException e) {
+                        LOGGER.error("===data from server, Decrypt data failed. detail: {}", e.getMessage());
+                        NettyUtil.closeOnFlush(ctx.channel());
+                    }
                     break;
                 case DISCONNECT:
                     System.out.println(System.nanoTime() + "portal收到断开消息");

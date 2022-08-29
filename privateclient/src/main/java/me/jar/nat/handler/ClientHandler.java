@@ -12,10 +12,13 @@ import me.jar.nat.constants.NatMsgType;
 import me.jar.nat.constants.ProxyConstants;
 import me.jar.nat.exception.NatProxyException;
 import me.jar.nat.message.NatMsg;
+import me.jar.nat.utils.AESUtil;
 import me.jar.nat.utils.NettyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.UnsupportedEncodingException;
+import java.security.GeneralSecurityException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,7 +30,7 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientHandler.class);
     private final Channel proxyChannel;
     private final String channelId;
-//    private final String password;
+    private final String password = "0123456789abcdef";
     private final Map<String, PairChannel> pairChannelMap;
     private final boolean isTargetChannel;
     private Channel theOtherChannel;
@@ -55,14 +58,19 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                 metaData.put(ProxyConstants.CHANNEL_ID, channelId);
                 metaData.put(ProxyConstants.ROLE, ProxyConstants.ROLE_AGENT);
                 natMsg.setMetaData(metaData);
-                byte[] dataBytes = ByteBufUtil.getBytes(data);
-                natMsg.setDate(dataBytes);
+                try {
+                    byte[] encryptData = AESUtil.encrypt(ByteBufUtil.getBytes(data), password);
+                    natMsg.setDate(encryptData);
 //                System.out.println("返回4");
-                theOtherChannel.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
-                    if (!future.isSuccess()) {
-                        NettyUtil.closeOnFlush(ctx.channel());
-                    }
-                });
+                    theOtherChannel.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
+                        if (!future.isSuccess()) {
+                            NettyUtil.closeOnFlush(ctx.channel());
+                        }
+                    });
+                } catch (GeneralSecurityException | UnsupportedEncodingException e) {
+                    LOGGER.error("===data from target, Encrypt data failed, close connection. detail: {}", e.getMessage());
+                    NettyUtil.closeOnFlush(ctx.channel());
+                }
             } else {
                 throw new NatProxyException("target message received is not ByteBuf");
             }
@@ -72,7 +80,13 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                 switch (natMsg.getType()) {
                     case DATA:
 //                        System.out.println("发送3");
-                        theOtherChannel.writeAndFlush(Unpooled.wrappedBuffer(natMsg.getDate()));
+                        try {
+                            byte[] decryptData = AESUtil.decrypt(natMsg.getDate(), password);
+                            theOtherChannel.writeAndFlush(Unpooled.wrappedBuffer(decryptData));
+                        } catch (GeneralSecurityException | UnsupportedEncodingException e) {
+                            LOGGER.error("===data from server, Decrypt data failed. detail: {}", e.getMessage());
+                            NettyUtil.closeOnFlush(ctx.channel());
+                        }
                         break;
                     case DISCONNECT:
                         ctx.close();

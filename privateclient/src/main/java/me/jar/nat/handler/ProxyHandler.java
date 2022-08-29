@@ -135,7 +135,7 @@ public class ProxyHandler extends CommonHandler {
                                 metaDataSend.put(ProxyConstants.CHANNEL_ID, channelId);
                                 metaDataSend.put(ProxyConstants.ROLE, ProxyConstants.ROLE_AGENT);
                                 metaDataSend.put("userName", "bbb");
-                                metaDataSend.put("password", "876543211");
+                                metaDataSend.put("password", "87654321");
                                 natMsg.setMetaData(metaDataSend);
                                 System.out.println("建立连接，步骤6，发送CONNECT回去");
                                 connectProxyFuture.channel().writeAndFlush(natMsg).addListener((ChannelFutureListener) futureMsgSend -> {

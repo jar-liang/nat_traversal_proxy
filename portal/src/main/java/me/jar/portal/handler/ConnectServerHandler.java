@@ -19,10 +19,13 @@ import me.jar.nat.codec.NatMsg2ByteEncoder;
 import me.jar.nat.constants.NatMsgType;
 import me.jar.nat.constants.ProxyConstants;
 import me.jar.nat.message.NatMsg;
+import me.jar.nat.utils.AESUtil;
 import me.jar.nat.utils.NettyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.UnsupportedEncodingException;
+import java.security.GeneralSecurityException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,6 +37,7 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectServerHandler.class);
 
     private Channel farChannel;
+    private final String password = "0123456789abcdef";
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
@@ -47,15 +51,18 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
                 metaData.put(ProxyConstants.CHANNEL_ID, farChannel.id().asLongText());
                 metaData.put(ProxyConstants.ROLE, ProxyConstants.ROLE_PORTAL);
                 natMsg.setMetaData(metaData);
-                byte[] dataBytes = ByteBufUtil.getBytes(data);
-                natMsg.setDate(dataBytes);
-//                System.out.println("已建立连接，步骤11，读到数据，发送: " + natMsg.toString());
-//                System.out.println("发送1");
-                farChannel.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
-                    if (!future.isSuccess()) {
-                        NettyUtil.closeOnFlush(ctx.channel());
-                    }
-                });
+                try {
+                    byte[] encryptData = AESUtil.encrypt(ByteBufUtil.getBytes(data), password);
+                    natMsg.setDate(encryptData);
+                    farChannel.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
+                        if (!future.isSuccess()) {
+                            NettyUtil.closeOnFlush(ctx.channel());
+                        }
+                    });
+                } catch (GeneralSecurityException | UnsupportedEncodingException e) {
+                    LOGGER.error("===data from endpoint, Encrypt data failed, close connection. detail: {}", e.getMessage());
+                    NettyUtil.closeOnFlush(ctx.channel());
+                }
             } else {
                 NettyUtil.closeOnFlush(ctx.channel());
             }

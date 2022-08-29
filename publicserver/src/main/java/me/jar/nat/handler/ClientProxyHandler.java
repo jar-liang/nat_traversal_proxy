@@ -165,12 +165,14 @@ public class ClientProxyHandler extends ChannelInboundHandlerAdapter {
         Map<String, Object> metaData = new HashMap<>(1);
         metaData.put(ProxyConstants.CHANNEL_ID, channelId);
         natMsg.setMetaData(metaData);
+        boolean hasConnected = false;
         if (theOtherChannel != null && theOtherChannel.isActive()) {
+            hasConnected = true;
             theOtherChannel.writeAndFlush(natMsg).addListener(ChannelFutureListener.CLOSE);
         }
         Map<String, PairChannel> pairChannelMap = globalChannelMap.get(serverProxyChannelId);
         if (pairChannelMap != null) {
-            if (channelId.length() > 0 && pairChannelMap.get(channelId) != null) {
+            if (!hasConnected && !isPortalHandler && channelId.length() > 0 && pairChannelMap.get(channelId) != null) {
                 PairChannel pairChannel = pairChannelMap.get(channelId);
                 Channel portalChannel = pairChannel.getPortalChannel();
                 if (portalChannel != null && portalChannel.isActive()) {
