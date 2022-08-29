@@ -28,15 +28,13 @@ import java.util.Map;
  */
 public class ClientHandler extends ChannelInboundHandlerAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientHandler.class);
-    private final Channel proxyChannel;
     private final String channelId;
     private final String password = "0123456789abcdef";
     private final Map<String, PairChannel> pairChannelMap;
     private final boolean isTargetChannel;
     private Channel theOtherChannel;
 
-    public ClientHandler(Channel proxyChannel, String channelId, Map<String, PairChannel> pairChannelMap, boolean isTargetChannel) {
-        this.proxyChannel = proxyChannel;
+    public ClientHandler(String channelId, Map<String, PairChannel> pairChannelMap, boolean isTargetChannel) {
         this.channelId = channelId;
 //        String password = ProxyConstants.PROPERTY.get(ProxyConstants.PROPERTY_NAME_KEY);
 //        if (password == null || password.length() == 0) {
@@ -89,7 +87,7 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                         }
                         break;
                     case DISCONNECT:
-                        ctx.close();
+                        NettyUtil.closeOnFlush(ctx.channel());
                         break;
                     default:
                         throw new NatProxyException("message type is not one of DATA/DISCONNECT");

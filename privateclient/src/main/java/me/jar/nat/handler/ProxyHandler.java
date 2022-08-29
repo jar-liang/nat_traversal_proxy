@@ -87,7 +87,7 @@ public class ProxyHandler extends CommonHandler {
             @Override
             protected void initChannel(SocketChannel ch) {
                 ChannelPipeline pipeline = ch.pipeline();
-                pipeline.addLast("clientHandler", new ClientHandler(ctx.channel(), channelId, PAIR_CHANNEL_MAP, true));
+                pipeline.addLast("clientHandler", new ClientHandler(channelId, PAIR_CHANNEL_MAP, true));
             }
         });
 //        String targetIp = ProxyConstants.PROPERTY.get(ProxyConstants.TARGET_IP);
@@ -115,7 +115,7 @@ public class ProxyHandler extends CommonHandler {
                                 pipeline.addLast("lengthContent", new LengthContentDecoder());
                                 pipeline.addLast("decoder", new Byte2NatMsgDecoder());
                                 pipeline.addLast("encoder", new NatMsg2ByteEncoder());
-                                pipeline.addLast("clientHandler", new ClientHandler(ctx.channel(), channelId, PAIR_CHANNEL_MAP, false));
+                                pipeline.addLast("clientHandler", new ClientHandler(channelId, PAIR_CHANNEL_MAP, false));
                             }
                         });
 //                        String serverAgentIp = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_IP);
