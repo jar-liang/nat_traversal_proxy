@@ -7,6 +7,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.util.ReferenceCountUtil;
 import me.jar.nat.channel.PairChannel;
 import me.jar.nat.constants.NatMsgType;
 import me.jar.nat.constants.ProxyConstants;
@@ -29,18 +30,18 @@ import java.util.Map;
 public class ClientHandler extends ChannelInboundHandlerAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientHandler.class);
     private final String channelId;
-    private final String password = "0123456789abcdef";
+    private final String password;
     private final Map<String, PairChannel> pairChannelMap;
     private final boolean isTargetChannel;
     private Channel theOtherChannel;
 
     public ClientHandler(String channelId, Map<String, PairChannel> pairChannelMap, boolean isTargetChannel) {
+        String password = ProxyConstants.PROPERTY.get(ProxyConstants.PROPERTY_NAME_KEY);
+        if (password == null || password.length() == 0) {
+            throw new IllegalArgumentException("Illegal key from property");
+        }
+        this.password = password;
         this.channelId = channelId;
-//        String password = ProxyConstants.PROPERTY.get(ProxyConstants.PROPERTY_NAME_KEY);
-//        if (password == null || password.length() == 0) {
-//            throw new IllegalArgumentException("Illegal key from property");
-//        }
-//        this.password = password;
         this.pairChannelMap = pairChannelMap;
         this.isTargetChannel = isTargetChannel;
     }
@@ -59,7 +60,6 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                 try {
                     byte[] encryptData = AESUtil.encrypt(ByteBufUtil.getBytes(data), password);
                     natMsg.setDate(encryptData);
-//                System.out.println("返回4");
                     theOtherChannel.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
                         if (!future.isSuccess()) {
                             NettyUtil.closeOnFlush(ctx.channel());
@@ -68,6 +68,8 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                 } catch (GeneralSecurityException | UnsupportedEncodingException e) {
                     LOGGER.error("===data from target, Encrypt data failed, close connection. detail: {}", e.getMessage());
                     NettyUtil.closeOnFlush(ctx.channel());
+                } finally {
+                    ReferenceCountUtil.release(data);
                 }
             } else {
                 throw new NatProxyException("target message received is not ByteBuf");
@@ -77,7 +79,6 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                 NatMsg natMsg = (NatMsg) msg;
                 switch (natMsg.getType()) {
                     case DATA:
-//                        System.out.println("发送3");
                         try {
                             byte[] decryptData = AESUtil.decrypt(natMsg.getDate(), password);
                             theOtherChannel.writeAndFlush(Unpooled.wrappedBuffer(decryptData));
@@ -100,13 +101,6 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
-        String str;
-        if (isTargetChannel) {
-            str = "target";
-        } else {
-            str = "agent";
-        }
-        System.out.println(str + "执行channelWritabilityChanged，是否可写：" + ctx.channel().isWritable());
         theOtherChannel.config().setAutoRead(ctx.channel().isWritable());
         super.channelWritabilityChanged(ctx);
     }
@@ -114,7 +108,6 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
         if (isTargetChannel) {
-            System.out.println(System.nanoTime() + "断开，4");
             if (theOtherChannel != null && theOtherChannel.isActive()) {
                 NatMsg natMsg = new NatMsg();
                 natMsg.setType(NatMsgType.DISCONNECT);
@@ -125,12 +118,9 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                 theOtherChannel.writeAndFlush(natMsg).addListener(ChannelFutureListener.CLOSE);
             }
         } else {
-            System.out.println(System.nanoTime() + "断开，3");
             NettyUtil.closeOnFlush(theOtherChannel);
         }
-        System.out.println(System.nanoTime() + "断开前pairChannelMap大小: " + pairChannelMap.size());
         pairChannelMap.remove(channelId);
-        System.out.println(System.nanoTime() + "断开后pairChannelMap大小: " + pairChannelMap.size());
     }
 
     @Override

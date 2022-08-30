@@ -13,9 +13,14 @@ import io.netty.handler.timeout.IdleStateHandler;
 import me.jar.nat.codec.Byte2NatMsgDecoder;
 import me.jar.nat.codec.LengthContentDecoder;
 import me.jar.nat.codec.NatMsg2ByteEncoder;
+import me.jar.nat.constants.ProxyConstants;
 import me.jar.nat.handler.ProxyHandler;
+import me.jar.nat.utils.PlatformUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.net.URL;
+import java.util.Map;
 
 
 /**
@@ -23,24 +28,24 @@ import org.slf4j.LoggerFactory;
  * @Date 2021/4/27-21:31
  */
 public class PrivateClient {
-//    static {
-//        String path = PrivateClient.class.getProtectionDomain().getCodeSource().getLocation().getPath();
-//        if (path.contains(".jar")) {
-//            String osName = System.getProperty("os.name");
-//            String tempPath;
-//            if (osName.contains("Windows")) {
-//                tempPath = path.substring(path.indexOf("/") + 1, path.indexOf(".jar"));
-//            } else {
-//                tempPath = path.substring(path.indexOf("/"), path.indexOf(".jar"));
-//            }
-//            String targetDirPath = tempPath.substring(0, tempPath.lastIndexOf("/"));
-//            System.out.println("target path: " + targetDirPath);
-//            System.setProperty("WORKDIR", targetDirPath);
-//        } else {
-//            System.out.println("current path not contain .jar file");
-//            System.exit(1);
-//        }
-//    }
+    static {
+        String path = PrivateClient.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+        if (path.contains(".jar")) {
+            String osName = System.getProperty("os.name");
+            String tempPath;
+            if (osName.contains("Windows")) {
+                tempPath = path.substring(path.indexOf("/") + 1, path.indexOf(".jar"));
+            } else {
+                tempPath = path.substring(path.indexOf("/"), path.indexOf(".jar"));
+            }
+            String targetDirPath = tempPath.substring(0, tempPath.lastIndexOf("/"));
+            System.out.println("target path: " + targetDirPath);
+            System.setProperty("WORKDIR", targetDirPath);
+        } else {
+            System.out.println("current path not contain .jar file");
+            System.exit(1);
+        }
+    }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PrivateClient.class);
 
@@ -61,10 +66,8 @@ public class PrivateClient {
                     pipeline.addLast("proxyHandler", new ProxyHandler());
                 }
             });
-//            String serverAgentIp = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_IP);
-//            String serverAgentPort = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_PORT);
-            String serverAgentIp = "127.0.0.1";
-            String serverAgentPort = "23333";
+            String serverAgentIp = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_IP);
+            String serverAgentPort = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_PORT);
             int serverAgentPortNum = Integer.parseInt(serverAgentPort);
             Channel channel = bootstrap.connect(serverAgentIp, serverAgentPortNum).channel();
             channel.closeFuture().addListener(future -> {
@@ -93,13 +96,13 @@ public class PrivateClient {
     }
 
     public static void main(String[] args) throws InterruptedException {
-//        URL location = PrivateClient.class.getProtectionDomain().getCodeSource().getLocation();
-//        Map<String, String> propertyMap = PlatformUtil.parseProperty2Map(location);
-//        if (!propertyMap.isEmpty()) {
-//            ProxyConstants.PROPERTY.clear();
-//            ProxyConstants.PROPERTY.putAll(propertyMap);
+        URL location = PrivateClient.class.getProtectionDomain().getCodeSource().getLocation();
+        Map<String, String> propertyMap = PlatformUtil.parseProperty2Map(location);
+        if (!propertyMap.isEmpty()) {
+            ProxyConstants.PROPERTY.clear();
+            ProxyConstants.PROPERTY.putAll(propertyMap);
             connectProxyServer();
-//        }
+        }
     }
 
 }

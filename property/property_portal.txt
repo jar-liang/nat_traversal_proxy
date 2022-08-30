@@ -1,0 +1,8 @@
+far.ip=
+server.to.client.port=
+key=
+listenning.port=
+user.name=
+user.password=
+target.ip=
+target.port=

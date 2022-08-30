@@ -4,7 +4,6 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -13,6 +12,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.ReferenceCountUtil;
 import me.jar.nat.codec.Byte2NatMsgDecoder;
 import me.jar.nat.codec.LengthContentDecoder;
 import me.jar.nat.codec.NatMsg2ByteEncoder;
@@ -37,7 +37,15 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectServerHandler.class);
 
     private Channel farChannel;
-    private final String password = "0123456789abcdef";
+    private final String password;
+
+    public ConnectServerHandler() {
+        String password = ProxyConstants.PROPERTY.get(ProxyConstants.PROPERTY_NAME_KEY);
+        if (password == null || password.length() == 0) {
+            throw new IllegalArgumentException("Illegal key from property");
+        }
+        this.password = password;
+    }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
@@ -62,6 +70,8 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
                 } catch (GeneralSecurityException | UnsupportedEncodingException e) {
                     LOGGER.error("===data from endpoint, Encrypt data failed, close connection. detail: {}", e.getMessage());
                     NettyUtil.closeOnFlush(ctx.channel());
+                } finally {
+                    ReferenceCountUtil.release(data);
                 }
             } else {
                 NettyUtil.closeOnFlush(ctx.channel());
@@ -73,19 +83,17 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
-        System.out.println("browser执行channelWritabilityChanged，是否可写：" + ctx.channel().isWritable());
         farChannel.config().setAutoRead(ctx.channel().isWritable());
         super.channelWritabilityChanged(ctx);
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
-//        if (!ProxyConstants.PROPERTY.containsKey(ProxyConstants.FAR_SERVER_IP) || !ProxyConstants.PROPERTY.containsKey(ProxyConstants.SERVER_CLIENT_PORT)) {
-//            LOGGER.error("===Property file has no far server ip or server-to-client port, please check!");
-//            ctx.close();
-//            return;
-//        }
-        System.out.println("建立连接，步骤1，连接服务器");
+        if (!ProxyConstants.PROPERTY.containsKey(ProxyConstants.FAR_SERVER_IP) || !ProxyConstants.PROPERTY.containsKey(ProxyConstants.SERVER_CLIENT_PORT)) {
+            LOGGER.error("===Property file has no far server ip or server-to-client port, please check!");
+            ctx.close();
+            return;
+        }
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(ctx.channel().eventLoop()).channel(NioSocketChannel.class)
                 .option(ChannelOption.SO_KEEPALIVE, true)
@@ -101,10 +109,8 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
                         pipeline.addLast("receiveFar", new ReceiveServerHandler(ctx.channel()));
                     }
                 });
-//        String host = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_IP);
-//        int port = Integer.parseInt(ProxyConstants.PROPERTY.get(ProxyConstants.SERVER_CLIENT_PORT));
-        String host = "127.0.0.1";
-        int port = 22222;
+        String host = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_IP);
+        int port = Integer.parseInt(ProxyConstants.PROPERTY.get(ProxyConstants.SERVER_CLIENT_PORT));
         bootstrap.connect(host, port)
                 .addListener((ChannelFutureListener) connectFuture -> {
                     if (connectFuture.isSuccess()) {
@@ -118,7 +124,6 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        System.out.println(System.nanoTime() + "断开，1");
         // 发送disconnect消息
         if (farChannel != null && farChannel.isActive()) {
             NatMsg natMsg = new NatMsg();
@@ -133,7 +138,7 @@ public class ConnectServerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        LOGGER.error("===ConnectFarHandler has caught exception, cause: {}", cause.getMessage());
+        LOGGER.error("===ConnectServerHandler has caught exception, cause: {}", cause.getMessage());
         NettyUtil.closeOnFlush(ctx.channel());
     }
 

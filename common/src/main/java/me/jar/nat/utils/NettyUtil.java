@@ -59,6 +59,7 @@ public final class NettyUtil {
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
                     .childOption(ChannelOption.AUTO_READ, isAutoRead)
                     .childHandler(chanelInitializer);
+//            ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED); // debug ByteBuf.release() was not called before it‘s garbage-collected 就放开，可以看到详情
             ChannelFuture cf = serverBootstrap.bind(port).sync();
             LOGGER.info(">>>Proxy server started, the listening port is {}.", port);
             cf.channel().closeFuture().sync();

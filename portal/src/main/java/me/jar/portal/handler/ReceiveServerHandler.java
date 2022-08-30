@@ -27,9 +27,14 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReceiveServerHandler.class);
 
     private final Channel clientChannel;
-    private final String password = "0123456789abcdef";
+    private final String password;
 
     public ReceiveServerHandler(Channel clientChannel) {
+        String password = ProxyConstants.PROPERTY.get(ProxyConstants.PROPERTY_NAME_KEY);
+        if (password == null || password.length() == 0) {
+            throw new IllegalArgumentException("Illegal key from property");
+        }
+        this.password = password;
         this.clientChannel = clientChannel;
     }
 
@@ -39,17 +44,14 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
             NatMsg natMsg = (NatMsg) msg;
             switch (natMsg.getType()) {
                 case CONNECT:
-                    System.out.println("建立连接，步骤9，收到发回来的CONNECT");
                     String id = String.valueOf(natMsg.getMetaData().get(ProxyConstants.CHANNEL_ID));
                     if (ctx.channel().id().asLongText().equals(id)) {
-                        System.out.println("建立连接，步骤10，连接建立完成，开始让读数据");
                         clientChannel.config().setAutoRead(true);
                     } else {
                         throw new NatProxyException("connect message channel id does not match ReceiveServerHandler channel id");
                     }
                     break;
                 case DATA:
-//                    System.out.println("返回6");
                     try {
                         byte[] decryptData = AESUtil.decrypt(natMsg.getDate(), password);
                         clientChannel.writeAndFlush(Unpooled.wrappedBuffer(decryptData));
@@ -59,7 +61,6 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
                     }
                     break;
                 case DISCONNECT:
-                    System.out.println(System.nanoTime() + "portal收到断开消息");
                     ctx.close();
                     break;
                 default:
@@ -70,25 +71,25 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
-        System.out.println("portal执行channelWritabilityChanged，是否可写：" + ctx.channel().isWritable());
         clientChannel.config().setAutoRead(ctx.channel().isWritable());
         super.channelWritabilityChanged(ctx);
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
-        System.out.println("建立连接，步骤2，发送CONNECT");
         NatMsg natMsg = new NatMsg();
         natMsg.setType(NatMsgType.CONNECT);
         Map<String, Object> metaData = new HashMap<>(6);
         metaData.put(ProxyConstants.CHANNEL_ID, ctx.channel().id().asLongText());
         metaData.put(ProxyConstants.ROLE, ProxyConstants.ROLE_PORTAL);
-        String targetIp = "192.168.0.110";
-        String targetPort = "8080";
+        String targetIp = ProxyConstants.PROPERTY.get(ProxyConstants.TARGET_IP);
+        String targetPort = ProxyConstants.PROPERTY.get(ProxyConstants.TARGET_PORT);
         metaData.put(ProxyConstants.TARGET_IP, targetIp);
         metaData.put(ProxyConstants.TARGET_PORT, targetPort);
-        metaData.put("userName", "aaa");
-        metaData.put("password", "12345678");
+        String userName = ProxyConstants.PROPERTY.get(ProxyConstants.USER_NAME);
+        String password = ProxyConstants.PROPERTY.get(ProxyConstants.USER_PASSWORD);
+        metaData.put("userName", userName);
+        metaData.put("password", password);
         natMsg.setMetaData(metaData);
         ctx.writeAndFlush(natMsg).addListener((ChannelFutureListener) future -> {
             if (future.isSuccess()) {
@@ -102,13 +103,12 @@ public class ReceiveServerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        System.out.println(System.nanoTime() + "断开，2");
         NettyUtil.closeOnFlush(clientChannel);
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        LOGGER.error("===ReceiveFarHandler caught exception, cause: {}", cause.getMessage() + ". host: " + ctx.channel().remoteAddress().toString());
+        LOGGER.error("===ReceiveServerHandler caught exception, cause: {}", cause.getMessage() + ". host: " + ctx.channel().remoteAddress().toString());
         NettyUtil.closeOnFlush(clientChannel);
         ctx.close();
     }

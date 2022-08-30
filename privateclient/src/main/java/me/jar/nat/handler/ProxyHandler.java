@@ -1,7 +1,6 @@
 package me.jar.nat.handler;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -26,8 +25,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -37,17 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ProxyHandler extends CommonHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProxyHandler.class);
     private static final Map<String, PairChannel> PAIR_CHANNEL_MAP = new ConcurrentHashMap<>();
-//    private final String password;
-    private String proxyType;
-    private Channel targetChannel;
-
-    public ProxyHandler() {
-//        String password = ProxyConstants.PROPERTY.get(ProxyConstants.PROPERTY_NAME_KEY);
-//        if (password == null || password.length() == 0) {
-//            throw new IllegalArgumentException("Illegal key from property");
-//        }
-//        this.password = password;
-    }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
@@ -76,7 +62,6 @@ public class ProxyHandler extends CommonHandler {
     }
 
     private void connectTarget(ChannelHandlerContext ctx, Map<String, Object> metaData) {
-        System.out.println("建立连接，收到CONNECT消息");
         String channelId = String.valueOf(metaData.get(ProxyConstants.CHANNEL_ID));
         EventLoopGroup workGroup = new NioEventLoopGroup(1);
         Bootstrap bootstrap = new Bootstrap();
@@ -90,16 +75,13 @@ public class ProxyHandler extends CommonHandler {
                 pipeline.addLast("clientHandler", new ClientHandler(channelId, PAIR_CHANNEL_MAP, true));
             }
         });
-//        String targetIp = ProxyConstants.PROPERTY.get(ProxyConstants.TARGET_IP);
-//        String targetPort = ProxyConstants.PROPERTY.get(ProxyConstants.TARGET_PORT);
         String targetIp = String.valueOf(metaData.get(ProxyConstants.TARGET_IP));
         String targetPort = String.valueOf(metaData.get(ProxyConstants.TARGET_PORT));
-        System.out.println("连接的目标ip:" + targetIp + ", port: " + targetPort);
+        LOGGER.info("connect to target, ip:" + targetIp + ", port: " + targetPort);
         try {
             int targetPortNum = Integer.parseInt(targetPort);
             bootstrap.connect(targetIp, targetPortNum).addListener((ChannelFutureListener) connectTargetFuture -> {
                 if (connectTargetFuture.isSuccess()) {
-                    System.out.println("建立连接，步骤4，已连接上目标服务器");
                     PairChannel pairChannel = new PairChannel();
                     pairChannel.setPortalChannel(connectTargetFuture.channel());
                     PAIR_CHANNEL_MAP.put(channelId, pairChannel);
@@ -118,14 +100,11 @@ public class ProxyHandler extends CommonHandler {
                                 pipeline.addLast("clientHandler", new ClientHandler(channelId, PAIR_CHANNEL_MAP, false));
                             }
                         });
-//                        String serverAgentIp = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_IP);
-//                        String serverClientPort = ProxyConstants.PROPERTY.get(ProxyConstants.SERVER_CLIENT_PORT);
-                        String serverAgentIp = "127.0.0.1";
-                        String serverClientPort = "22222";
+                        String serverAgentIp = ProxyConstants.PROPERTY.get(ProxyConstants.FAR_SERVER_IP);
+                        String serverClientPort = ProxyConstants.PROPERTY.get(ProxyConstants.SERVER_CLIENT_PORT);
                         int serverClientPortNum = Integer.parseInt(serverClientPort);
                         bootstrapProxy.connect(serverAgentIp, serverClientPortNum).addListener((ChannelFutureListener) connectProxyFuture -> {
                             if (connectProxyFuture.isSuccess()) {
-                                System.out.println("建立连接，步骤5，已连接上中间服务器");
                                 pairChannel.setAgentChannel(connectProxyFuture.channel());
                                 connectTargetFuture.channel().pipeline().fireUserEventTriggered(connectProxyFuture.channel());
                                 connectProxyFuture.channel().pipeline().fireUserEventTriggered(connectTargetFuture.channel());
@@ -134,10 +113,11 @@ public class ProxyHandler extends CommonHandler {
                                 Map<String, Object> metaDataSend = new HashMap<>(4);
                                 metaDataSend.put(ProxyConstants.CHANNEL_ID, channelId);
                                 metaDataSend.put(ProxyConstants.ROLE, ProxyConstants.ROLE_AGENT);
-                                metaDataSend.put("userName", "bbb");
-                                metaDataSend.put("password", "87654321");
+                                String userName = ProxyConstants.PROPERTY.get(ProxyConstants.USER_NAME);
+                                String password = ProxyConstants.PROPERTY.get(ProxyConstants.USER_PASSWORD);
+                                metaDataSend.put("userName", userName);
+                                metaDataSend.put("password", password);
                                 natMsg.setMetaData(metaDataSend);
-                                System.out.println("建立连接，步骤6，发送CONNECT回去");
                                 connectProxyFuture.channel().writeAndFlush(natMsg).addListener((ChannelFutureListener) futureMsgSend -> {
                                     if (futureMsgSend.isSuccess()) {
                                         connectTargetFuture.channel().config().setAutoRead(true);
@@ -182,14 +162,11 @@ public class ProxyHandler extends CommonHandler {
         NatMsg natMsg = new NatMsg();
         natMsg.setType(NatMsgType.REGISTER);
         Map<String, Object> metaData = new HashMap<>(3);
-//        String userName = ProxyConstants.PROPERTY.get(ProxyConstants.USER_NAME);
-//        metaData.put("userName", userName);
-//        String password = ProxyConstants.PROPERTY.get(ProxyConstants.USER_PASSWORD);
-//        metaData.put("password", password);
-//        String server2ClientPort = ProxyConstants.PROPERTY.get(ProxyConstants.SERVER_CLIENT_PORT);
-        metaData.put("userName", "test");
-        metaData.put("password", "123456");
-        String server2ClientPort = "22222";
+        String userName = ProxyConstants.PROPERTY.get(ProxyConstants.USER_NAME);
+        metaData.put("userName", userName);
+        String password = ProxyConstants.PROPERTY.get(ProxyConstants.USER_PASSWORD);
+        metaData.put("password", password);
+        String server2ClientPort = ProxyConstants.PROPERTY.get(ProxyConstants.SERVER_CLIENT_PORT);
         metaData.put("port", server2ClientPort);
         natMsg.setMetaData(metaData);
         ctx.writeAndFlush(natMsg);
@@ -198,8 +175,6 @@ public class ProxyHandler extends CommonHandler {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        System.out.println(System.nanoTime() + "断开，5-proxy");
-        System.out.println("PAIR_CHANNEL_MAP: 大小：" + PAIR_CHANNEL_MAP.size());
         PAIR_CHANNEL_MAP.values().forEach(e -> {
             NettyUtil.closeOnFlush(e.getPortalChannel());
             NettyUtil.closeOnFlush(e.getAgentChannel());
@@ -209,7 +184,7 @@ public class ProxyHandler extends CommonHandler {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        LOGGER.error("===client agent has caught exception, cause: " +  cause.getMessage());
+        LOGGER.error("===agent has caught exception, cause: " +  cause.getMessage());
         ctx.close();
     }
 }

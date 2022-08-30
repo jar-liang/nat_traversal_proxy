@@ -1,0 +1,6 @@
+far.ip=
+far.port=
+server.to.client.port=
+user.name=
+user.password=
+key=

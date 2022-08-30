@@ -9,6 +9,7 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -46,11 +47,13 @@ public class ServerProxyHandler extends CommonHandler {
     private boolean isRegister = false;
     private Channel clientServerChannel;
     private final Map<String, Map<String, PairChannel>> globalChannelMap;
+    private final ChannelGroup countChannels;
 
     private final Map<String, String> userAndPwdMap = new HashMap<>();
 
-    public ServerProxyHandler(Map<String, Map<String, PairChannel>> globalChannelMap) {
+    public ServerProxyHandler(Map<String, Map<String, PairChannel>> globalChannelMap, ChannelGroup countChannels) {
         this.globalChannelMap = globalChannelMap;
+        this.countChannels = countChannels;
     }
 
     @Override
@@ -131,7 +134,7 @@ public class ServerProxyHandler extends CommonHandler {
                         pipeline.addLast("lengthField", new LengthContentDecoder());
                         pipeline.addLast("decoder", new Byte2NatMsgDecoder());
                         pipeline.addLast("encoder", new NatMsg2ByteEncoder());
-                        pipeline.addLast("connectClient", new ClientProxyHandler(channel, globalChannelMap));
+                        pipeline.addLast("connectClient", new ClientProxyHandler(channel, globalChannelMap, userAndPwdMap));
                     }
                 };
 
@@ -142,6 +145,7 @@ public class ServerProxyHandler extends CommonHandler {
                         .childHandler(channelInitializer);
                 ChannelFuture cf = serverBootstrap.bind(server2ClientPortNum).sync();
                 clientServerChannel = cf.channel();
+                countChannels.add(clientServerChannel);
                 globalChannelMap.put(channel.id().asLongText(), new ConcurrentHashMap<>());
                 cf.channel().closeFuture().addListener((ChannelFutureListener) future -> {
                     LOGGER.error("server2Client close, bossGroup and workerGroup shutdown!");
@@ -163,71 +167,69 @@ public class ServerProxyHandler extends CommonHandler {
     }
 
     private boolean getUserAndPwdMap(String path) {
-        userAndPwdMap.put("test", "123456");
-        return true;
-//        if (!userAndPwdMap.isEmpty()) {
-//            return true;
-//        }
-//        boolean findUserFile = true;
-//        if (path.contains(".jar")) {
-//            String tempPath = null;
-//            if (PlatformUtil.PLATFORM_CODE == ProxyConstants.WIN_OS) {
-//                tempPath = path.substring(path.indexOf("/") + 1, path.indexOf(".jar"));
-//            } else if (PlatformUtil.PLATFORM_CODE == ProxyConstants.LINUX_OS) {
-//                tempPath = path.substring(path.indexOf("/"), path.indexOf(".jar"));
-//            } else {
-//                // 打印日志提示，不支持的系统
-//                LOGGER.warn("===Unsupported System!");
-//                findUserFile = false;
-//            }
-//            if (tempPath != null) {
-//                String targetDirPath = tempPath.substring(0, tempPath.lastIndexOf("/") + 1);
-//                File file = new File(targetDirPath);
-//                if (file.exists() && file.isDirectory()) {
-//                    File[] properties = file.listFiles(pathname -> pathname.getName().contains("user"));
-//                    if (properties == null || properties.length != 1) {
-//                        LOGGER.error("jar file directory should be only one property file! please check");
-//                        findUserFile = false;
-//                    } else {
-//                        File property = properties[0];
-//                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(property), CharsetUtil.UTF_8))) {
-//                            while (true) {
-//                                String line = reader.readLine();
-//                                if (line == null) {
-//                                    break;
-//                                }
-//                                if (line.length() == 0) {
-//                                    continue;
-//                                }
-//                                String[] split = line.split("\\|");
-//                                if (split.length == 2) {
-//                                    String userName = split[0];
-//                                    String pwd = split[1];
-//                                    if (userName != null && userName.length() > 0
-//                                            && pwd != null && pwd.length() > 0) {
-//                                        userAndPwdMap.put(userName.trim(), pwd.trim());
-//                                    }
-//                                }
-//                            }
-//                            if (userAndPwdMap.isEmpty()) {
-//                                LOGGER.error("read user file, but no data! please check!");
-//                                findUserFile = false;
-//                            }
-//                        } catch (IOException e) {
-//                            // 打印日志提示，读取配置文件失败
-//                            LOGGER.error("error code: 02, reading user file failed，please check!", e);
-//                            findUserFile = false;
-//                        }
-//                    }
-//                } else {
-//                    LOGGER.error("get jar file directory failed! please check!");
-//                }
-//            }
-//        } else {
-//            LOGGER.error("path not contain '.jar' string! please check!");
-//            findUserFile = false;
-//        }
-//        return findUserFile;
+        if (!userAndPwdMap.isEmpty()) {
+            return true;
+        }
+        boolean findUserFile = true;
+        if (path.contains(".jar")) {
+            String tempPath = null;
+            if (PlatformUtil.PLATFORM_CODE == ProxyConstants.WIN_OS) {
+                tempPath = path.substring(path.indexOf("/") + 1, path.indexOf(".jar"));
+            } else if (PlatformUtil.PLATFORM_CODE == ProxyConstants.LINUX_OS) {
+                tempPath = path.substring(path.indexOf("/"), path.indexOf(".jar"));
+            } else {
+                // 打印日志提示，不支持的系统
+                LOGGER.warn("===Unsupported System!");
+                findUserFile = false;
+            }
+            if (tempPath != null) {
+                String targetDirPath = tempPath.substring(0, tempPath.lastIndexOf("/") + 1);
+                File file = new File(targetDirPath);
+                if (file.exists() && file.isDirectory()) {
+                    File[] properties = file.listFiles(pathname -> pathname.getName().contains("user"));
+                    if (properties == null || properties.length != 1) {
+                        LOGGER.error("jar file directory should be only one property file! please check");
+                        findUserFile = false;
+                    } else {
+                        File property = properties[0];
+                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(property), CharsetUtil.UTF_8))) {
+                            while (true) {
+                                String line = reader.readLine();
+                                if (line == null) {
+                                    break;
+                                }
+                                if (line.length() == 0) {
+                                    continue;
+                                }
+                                String[] split = line.split("\\|");
+                                if (split.length == 2) {
+                                    String userName = split[0];
+                                    String pwd = split[1];
+                                    if (userName != null && userName.length() > 0
+                                            && pwd != null && pwd.length() > 0) {
+                                        userAndPwdMap.put(userName.trim(), pwd.trim());
+                                    }
+                                }
+                            }
+                            if (userAndPwdMap.isEmpty()) {
+                                LOGGER.error("read user file, but no data! please check!");
+                                findUserFile = false;
+                            }
+                        } catch (IOException e) {
+                            // 打印日志提示，读取配置文件失败
+                            LOGGER.error("error code: 02, reading user file failed，please check!", e);
+                            findUserFile = false;
+                        }
+                    }
+                } else {
+                    LOGGER.error("get jar file directory failed! please check!");
+                }
+            }
+        } else {
+            LOGGER.error("path not contain '.jar' string! please check!");
+            findUserFile = false;
+        }
+        return findUserFile;
     }
 
     private void sendBackMsgAndDealResult(NatMsg retnNatMsg, Map<String, Object> retnMetaData) {
@@ -241,7 +243,6 @@ public class ServerProxyHandler extends CommonHandler {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        System.out.println(System.nanoTime() + "断开，5-server");
         LOGGER.warn("===server agent to client agent connection inactive. channel: " + ctx.channel().toString());
         if (clientServerChannel != null) {
             LOGGER.warn("due to server agent and client agent connection inactive, server2Client has to close. channel: " + clientServerChannel.toString());
